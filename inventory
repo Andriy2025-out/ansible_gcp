@@ -1,0 +1,14 @@
+---
+all:
+  children:
+    webservers:
+      hosts:
+        debian-server:
+          ansible_host: 34.45.42.0
+          ansible_user: a_lavrinok_itoutposts_com
+          distro: debian
+        rhel-server:
+          ansible_host: 34.55.144.198
+          ansible_user: a_lavrinok_itoutposts_com
+          distro: rhel
+          ansible_python_interpreter: /usr/bin/python3.9

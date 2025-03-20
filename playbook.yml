@@ -1,0 +1,114 @@
+---
+- name: Configure Web Servers
+  hosts: webservers
+  become: true
+  gather_facts: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3.9
+    nginx_conf_path:
+      debian: "/etc/nginx/sites-available"
+      rhel: "/etc/nginx/conf.d"
+    nginx_enabled_path:
+      debian: "/etc/nginx/sites-enabled"
+      rhel: "/etc/nginx/conf.d"
+  
+  tasks:
+    - name: Get all host information
+      set_fact:
+        all_hosts: "{{ groups['webservers'] | map('extract', hostvars) | list }}"
+      run_once: true
+      
+    - name: Create dict of hostnames and IPs
+      set_fact:
+        host_details: "{{ host_details | default({}) | combine({item.inventory_hostname: item.ansible_host}) }}"
+      loop: "{{ all_hosts }}"
+      run_once: true
+    
+    - name: Update hosts file for each machine
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          {% for host, ip in host_details.items() %}
+          {% if host != inventory_hostname %}
+          {{ ip }} {{ host }}
+          {% endif %}
+          {% endfor %}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR NEIGHBORS"
+
+    - name: Install nginx package (Debian-based)
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      when: distro == "debian"
+      
+    - name: Install Nginx package (RHEL Linux)
+      shell: dnf install -y nginx
+      when: distro == "rhel"
+    
+    - name: Ensure /var/www/html directory exists
+      file:
+        path: /var/www/html
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    
+    - name: Generate index.html with machine info and neighbor links
+      template:
+        src: index.html.j2
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+      register: html_file
+    
+    - name: Create nginx virtual host configuration
+      template:
+        src: nginx-vhost.conf.j2
+        dest: "{{ nginx_conf_path[distro] }}/default-site.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      register: nginx_conf
+    
+    - name: Create symlink for Debian-based systems
+      file:
+        src: "{{ nginx_conf_path.debian }}/default-site.conf"
+        dest: "{{ nginx_enabled_path.debian }}/default-site.conf"
+        state: link
+      when: distro == "debian"
+      
+    - name: Check nginx configuration
+      command: nginx -t
+      register: nginx_config_check
+      changed_when: false
+      failed_when: nginx_config_check.rc != 0
+    
+    - name: Display nginx configuration check result
+      debug:
+        msg: "{{ nginx_config_check.stdout_lines + nginx_config_check.stderr_lines }}"
+      
+    - name: Restart nginx service if configuration is valid and files changed
+      service:
+        name: nginx
+        state: restarted
+      when: (nginx_conf.changed or html_file.changed) and nginx_config_check.rc == 0
+        
+    - name: Ensure nginx service is enabled and running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+        
+    - name: Check if nginx is accessible
+      uri:
+        url: http://localhost
+        status_code: 200
+      register: nginx_status
+      ignore_errors: yes
+      
+    - name: Report nginx status
+      debug:
+        msg: "Nginx on {{ inventory_hostname }} is {{ (nginx_status.status == 200) | ternary('running properly', 'not running properly') }}"

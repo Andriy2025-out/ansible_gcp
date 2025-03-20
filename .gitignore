@@ -1,0 +1,55 @@
+# Ansible-specific ignores
+**/*.retry
+**/.vault_password
+**/vault.yml
+**/roles/*
+!**/roles/requirements.yml
+**/inventory/*
+!**/inventory/inventory.yml
+**/group_vars/*
+**/host_vars/*
+**/ansible.cfg
+**/playbook.retry
+
+# Terraform-specific ignores
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform.lock.hcl
+**/terraform.tfvars
+**/*.tfvars
+**/terraform.tfplan
+**/terraform.tfstate.backup
+**/crash.log
+
+# IDE-specific ignores
+**/.idea/
+**/.vscode/
+**/*.swp
+**/*.swo
+
+# Python-specific ignores (if using custom modules or plugins)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.py.class
+
+# Local overrides and sensitive files
+**/local.env
+**/secrets.*
+**/*.key
+**/*.pem
+**/*.cert
+**/*.crt
+**/*.pub
+
+# Logs and temporary files
+**/*.log
+**/tmp/
+**/*.bak
+**/*.backup
+
+# OS-specific files
+**/.DS_Store
+**/Thumbs.db
